@@ -1,12 +1,12 @@
 {
   "service_name": "Anyrouter Claude Code Probe",
-  "overall_status": "degraded",
+  "overall_status": "operational",
   "http_status": 200,
-  "token_ok": false,
-  "last_token": "",
-  "latency_ms": 3511.76,
-  "checked_at": "2026-04-15T05:10:18Z",
-  "error_message": "No text content in response",
+  "token_ok": true,
+  "last_token": "A",
+  "latency_ms": 2269.52,
+  "checked_at": "2026-04-15T05:14:48Z",
+  "error_message": "",
   "raw_error_type": null,
   "target_model": "claude-opus-4-6[1m]"
 }

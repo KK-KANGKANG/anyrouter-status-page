@@ -113,8 +113,9 @@ def build_payload(model: str, prompt: str) -> Dict[str, Any]:
                 separators=(",", ":"),
             )
         },
-        "thinking": {"type": "adaptive"},
-        "temperature": 1,
+        # Keep the probe cheap and deterministic. Extended thinking can consume
+        # the single-token budget and yield no visible text even on HTTP 200.
+        "temperature": 0,
         "max_tokens": 1,
         "stream": False,
     }
@@ -122,10 +123,62 @@ def build_payload(model: str, prompt: str) -> Dict[str, Any]:
 
 def extract_text(data: Dict[str, Any]) -> str:
     chunks: List[str] = []
-    for block in data.get("content", []):
+    content = data.get("content", [])
+    if isinstance(content, str):
+        return content.strip()
+    for block in content:
         if isinstance(block, dict) and block.get("type") == "text":
-            chunks.append(block.get("text", ""))
+            chunks.append(str(block.get("text", "")))
+
+    # Some gateways return OpenAI-style payloads even on Anthropic-compatible paths.
+    for choice in data.get("choices", []):
+        if not isinstance(choice, dict):
+            continue
+        message = choice.get("message")
+        if isinstance(message, dict):
+            message_content = message.get("content", "")
+            if isinstance(message_content, str):
+                chunks.append(message_content)
+            elif isinstance(message_content, list):
+                for block in message_content:
+                    if isinstance(block, dict) and block.get("type") == "text":
+                        text = block.get("text", "")
+                        if isinstance(text, dict):
+                            chunks.append(str(text.get("value", "")))
+                        else:
+                            chunks.append(str(text))
+        text = choice.get("text")
+        if isinstance(text, str):
+            chunks.append(text)
     return "".join(chunks).strip()
+
+
+def response_summary(data: Dict[str, Any]) -> str:
+    parts: List[str] = []
+
+    content_types: List[str] = []
+    content = data.get("content")
+    if isinstance(content, list):
+        for block in content:
+            if isinstance(block, dict):
+                content_types.append(str(block.get("type") or "unknown"))
+    if content_types:
+        parts.append(f"content_types={','.join(content_types)}")
+
+    stop_reason = data.get("stop_reason")
+    if stop_reason:
+        parts.append(f"stop_reason={stop_reason}")
+
+    finish_reasons: List[str] = []
+    for choice in data.get("choices", []):
+        if isinstance(choice, dict):
+            finish_reason = choice.get("finish_reason")
+            if finish_reason:
+                finish_reasons.append(str(finish_reason))
+    if finish_reasons:
+        parts.append(f"finish_reason={','.join(finish_reasons)}")
+
+    return "; ".join(parts)
 
 
 def preview_text(text: str, limit: int = 32) -> str:
@@ -336,7 +389,11 @@ def run_probe(api_base: str, api_key: str, model: str, timeout: int, prompt: str
         return status
 
     status["overall_status"] = "degraded"
-    status["error_message"] = "No text content in response"
+    summary = response_summary(data)
+    if summary:
+        status["error_message"] = f"No text content in response ({summary})"
+    else:
+        status["error_message"] = "No text content in response"
     return status
 
 
