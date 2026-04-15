@@ -5,6 +5,10 @@ on:
     - cron: "*/5 * * * *"
   workflow_dispatch:
 
+concurrency:
+  group: anyrouter-status-check
+  cancel-in-progress: false
+
 permissions:
   contents: write
 
@@ -14,6 +18,8 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - name: Setup Python
         uses: actions/setup-python@v5
@@ -37,4 +43,5 @@ jobs:
           git add docs/data/status.json docs/data/history.json
           git diff --cached --quiet && exit 0
           git commit -m "chore(status): refresh anyrouter probe data"
-          git push
+          git pull --rebase origin main
+          git push origin HEAD:main
