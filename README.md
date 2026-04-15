@@ -73,6 +73,12 @@
 - 当前仓库的定时调度由 Cloudflare Worker 负责，GitHub Actions 侧通过 `workflow_dispatch` 接收触发。
 - 探测失败时脚本仍会写入状态文件；只有缺少配置或写文件失败时才会退出非零。
 
+## 🚩 友情链接
+
+感谢 **LinuxDo** 社区的支持！
+
+[![LinuxDo](https://img.shields.io/badge/社区-LinuxDo-blue?style=for-the-badge)](https://linux.do/)
+
 ## 致敬
 
 - [lsdefine/GenericAgent](https://github.com/lsdefine/GenericAgent)
