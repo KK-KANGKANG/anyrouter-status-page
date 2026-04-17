@@ -15,6 +15,7 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 
 
+CC_BILLING_HEADER = "x-anthropic-billing-header: cc_version=2.1.111.b2b; cc_entrypoint=cli; cch=00000;"
 CC_SYSTEM = "You are Claude Code, Anthropic's official CLI for Claude."
 WINDOW_HOURS = 24 * 7
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
@@ -53,12 +54,22 @@ def auto_make_url(base: str, path: str) -> str:
     return f"{b}/{p}" if re.search(r"/v\d+(/|$)", b) else f"{b}/v1/{p}"
 
 
-def build_headers(api_key: str, model: str) -> Tuple[Dict[str, str], str]:
+def build_request_ids() -> Tuple[str, str, str]:
+    session_id = str(uuid.uuid4())
+    account_uuid = str(uuid.uuid4())
+    device_id = uuid.uuid4().hex + uuid.uuid4().hex[:32]
+    return session_id, account_uuid, device_id
+
+
+def build_headers(api_key: str, model: str, session_id: str) -> Tuple[Dict[str, str], str]:
     beta_parts = [
         "claude-code-20250219",
         "interleaved-thinking-2025-05-14",
         "redact-thinking-2026-02-12",
+        "context-management-2025-06-27",
         "prompt-caching-scope-2026-01-05",
+        "advanced-tool-use-2025-11-20",
+        "effort-2025-11-24",
     ]
     clean_model = model
     if "[1m]" in model.lower():
@@ -66,22 +77,30 @@ def build_headers(api_key: str, model: str) -> Tuple[Dict[str, str], str]:
         clean_model = model.replace("[1m]", "").replace("[1M]", "")
 
     headers = {
+        "Accept": "application/json",
         "Content-Type": "application/json",
+        "X-Stainless-Retry-Count": "0",
+        "X-Stainless-Timeout": "3000",
+        "X-Stainless-Lang": "js",
+        "X-Stainless-Package-Version": "0.81.0",
+        "X-Stainless-OS": "MacOS",
+        "X-Stainless-Arch": "arm64",
+        "X-Stainless-Runtime": "node",
+        "X-Stainless-Runtime-Version": "v23.10.0",
         "anthropic-version": "2023-06-01",
         "anthropic-beta": ",".join(beta_parts),
         "anthropic-dangerous-direct-browser-access": "true",
-        "user-agent": "claude-cli/2.1.90 (external, cli)",
+        "user-agent": "claude-cli/2.1.111 (external, cli)",
         "x-app": "cli",
+        "X-Claude-Code-Session-Id": session_id,
+        "accept-language": "*",
+        "sec-fetch-mode": "cors",
         "authorization": f"Bearer {api_key}",
     }
     return headers, clean_model
 
 
-def build_payload(model: str, prompt: str) -> Dict[str, Any]:
-    session_id = str(uuid.uuid4())
-    account_uuid = str(uuid.uuid4())
-    device_id = uuid.uuid4().hex + uuid.uuid4().hex[:32]
-
+def build_payload(model: str, prompt: str, session_id: str, account_uuid: str, device_id: str) -> Dict[str, Any]:
     return {
         "model": model,
         "messages": [
@@ -99,6 +118,10 @@ def build_payload(model: str, prompt: str) -> Dict[str, Any]:
         "system": [
             {
                 "type": "text",
+                "text": CC_BILLING_HEADER,
+            },
+            {
+                "type": "text",
                 "text": CC_SYSTEM,
                 "cache_control": {"type": "ephemeral"},
             }
@@ -113,9 +136,20 @@ def build_payload(model: str, prompt: str) -> Dict[str, Any]:
                 separators=(",", ":"),
             )
         },
-        # Keep the probe cheap and deterministic. Extended thinking can consume
-        # the single-token budget and yield no visible text even on HTTP 200.
-        "temperature": 0,
+        # new-api currently routes Claude Code-style Opus 4.7 requests more
+        # reliably when the modern thinking/effort envelope is present. Keep
+        # the probe cheap by pairing it with max_tokens=1 and no tool schemas.
+        "thinking": {"type": "adaptive"},
+        "output_config": {"effort": "medium"},
+        "context_management": {
+            "edits": [
+                {
+                    "type": "clear_thinking_20251015",
+                    "keep": "all",
+                }
+            ]
+        },
+        "tools": [],
         "max_tokens": 1,
         "stream": False,
     }
@@ -329,8 +363,9 @@ def run_probe(api_base: str, api_key: str, model: str, timeout: int, prompt: str
     status["checked_at"] = checked_at
     status["target_model"] = model
 
-    headers, clean_model = build_headers(api_key, model)
-    payload = build_payload(clean_model, prompt)
+    session_id, account_uuid, device_id = build_request_ids()
+    headers, clean_model = build_headers(api_key, model, session_id)
+    payload = build_payload(clean_model, prompt, session_id, account_uuid, device_id)
     url = auto_make_url(api_base, "messages") + "?beta=true"
 
     req = urllib.request.Request(
@@ -405,7 +440,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--api-key", default=os.environ.get("ANYROUTER_API_KEY", ""), help="Anyrouter API key")
     parser.add_argument(
         "--model",
-        default=os.environ.get("ANYROUTER_MODEL", "claude-opus-4-6[1m]"),
+        default=os.environ.get("ANYROUTER_MODEL", "claude-opus-4-7[1m]"),
         help="Model name",
     )
     parser.add_argument(

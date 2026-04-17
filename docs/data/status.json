@@ -1,12 +1,12 @@
 {
   "service_name": "Anyrouter Claude Code Probe",
-  "overall_status": "major_outage",
-  "http_status": 500,
-  "token_ok": false,
-  "last_token": "",
-  "latency_ms": 1054.78,
-  "checked_at": "2026-04-17T01:00:30Z",
-  "error_message": "Panic detected, error: runtime error: invalid memory address or nil pointer dereference. Please submit a issue here: https://github.com/Calcium-Ion/new-api",
-  "raw_error_type": "new_api_panic",
+  "overall_status": "operational",
+  "http_status": 200,
+  "token_ok": true,
+  "last_token": "A",
+  "latency_ms": 2179.33,
+  "checked_at": "2026-04-17T01:02:50Z",
+  "error_message": "",
+  "raw_error_type": null,
   "target_model": "claude-opus-4-7[1m]"
 }
