@@ -75,39 +75,19 @@
 
 ## Opus 4.7[1m] 兼容说明
 
-2026-04-17 本地抓包对比后确认，`claude-opus-4-7[1m]` 不能用的原因不是“模型名本身错了”，而是**旧探测脚本模拟的 Claude Code 请求已经落后于当前真实 CLI 请求格式**。
+旧脚本模拟的 Claude Code 请求格式已经过时。在当前 anyrouter / new-api 链路上，旧格式容易触发 `500 new_api_panic`，真实 Claude Code CLI 请求则可以正常返回 `200`。
 
-旧脚本的问题主要有：
+和旧脚本相比，当前 CLI 的关键变化主要是：
 
-- 还在发送旧的最小请求体，例如 `temperature=0`
-- `anthropic-beta` 组合偏旧
-- 缺少当前 Claude Code CLI 会带的关键结构，例如：
+- 删除了旧参数：`temperature`
+- 增加了新字段：
   - `thinking: {"type": "adaptive"}`
   - `output_config: {"effort": "medium"}`
   - `context_management`
-  - Claude Code 风格的 billing/system envelope
+- 增加了 Claude Code 风格的 billing/system 信息，以及更新后的 `anthropic-beta`
+- `[1m]` 只用于启用 1M beta header，实际发出的 `model` 会去掉 `[1m]`
 
-在当前 anyrouter / new-api 链路上，这些差异会导致两种现象：
-
-- 用旧格式探测 `claude-opus-4-7[1m]` 时，网关可能直接返回 `500 new_api_panic`
-- 用真实 Claude Code CLI 请求同一模型时，可以正常返回 `200`
-
-因此脚本已经改成按当前真实 Claude Code CLI 的关键字段来发探测请求：
-
-- 默认示例模型更新为 `claude-opus-4-7[1m]`
-- `[1m]` 后缀只作为“启用 1M context beta header”的便捷写法；实际发出的 `model` 会去掉 `[1m]`
-- 不再发送 `temperature`
-- 发送：
-  - `thinking: {"type": "adaptive"}`
-  - `output_config: {"effort": "medium"}`
-  - `context_management`
-  - Claude Code 风格的 system / metadata / headers
-- 仍保持探测足够便宜：
-  - `max_tokens=1`
-  - `tools=[]`
-  - `stream=false`
-
-如果你后面再切换 Claude 新模型，优先建议以**真实 Claude Code CLI 抓包结果**为准，而不是只改模型名。
+脚本现在已经按这套格式同步，探测仍保持最小开销：`max_tokens=1`、`tools=[]`、`stream=false`。
 
 ## 🚩 友情链接
 
