@@ -1,12 +1,12 @@
 {
   "service_name": "Anyrouter Claude Code Probe",
-  "overall_status": "major_outage",
-  "http_status": null,
-  "token_ok": false,
-  "last_token": "",
-  "latency_ms": 30453.53,
-  "checked_at": "2026-04-18T03:31:07Z",
-  "error_message": "TimeoutError: The read operation timed out",
+  "overall_status": "operational",
+  "http_status": 200,
+  "token_ok": true,
+  "last_token": "A",
+  "latency_ms": 2316.15,
+  "checked_at": "2026-04-18T03:36:00Z",
+  "error_message": "",
   "raw_error_type": null,
   "target_model": "claude-opus-4-7[1m]"
 }
